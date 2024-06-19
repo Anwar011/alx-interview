@@ -1,37 +1,52 @@
 #!/usr/bin/python3
-'''a script that reads stdin line by line and computes metrics'''
+"""
+<IP Address> - [<date>]
+"GET /projects/260 HTTP/1.1" <status code>
+"""
 
 
+import signal
 import sys
+import re
+import time
 
-cache = {'200': 0, '301': 0, '400': 0, '401': 0,
-         '403': 0, '404': 0, '405': 0, '500': 0}
-total_size = 0
-counter = 0
+regex = '^([0-9]?[0-9]?[0-9]\.){3}[0-9]?[0-9]?[0-9] \
+- \[\S* \S*] "\S* \S* \S*" [2-5]0[0,1,3,4,5] [0-9]+$'
+ipregex = '^([0-9]?[0-9]?[0-9]\.){3}[0-9]?[0-9]?[0-9]'
+filesizeregex = '[0-9]+$'
+statuscoderegex = '" [2-5]0[0,1,3,4,5]'
+valid_status_code = {
+    "200": 0,
+    "301": 0,
+    "400": 0,
+    "401": 0,
+    "403": 0,
+    "404": 0,
+    "405": 0,
+    "500": 0
+    }
+filesize = 0
+lineindex = 0
+
+
+def show():
+    """display status"""
+    print("File size: {}".format(filesize))
+    for code, num in valid_status_code.items():
+        if num:
+            print("{}: {}".format(code, num))
 
 try:
     for line in sys.stdin:
-        line_list = line.split(" ")
-        if len(line_list) > 4:
-            code = line_list[-2]
-            size = int(line_list[-1])
-            if code in cache.keys():
-                cache[code] += 1
-            total_size += size
-            counter += 1
-
-        if counter == 10:
-            counter = 0
-            print('File size: {}'.format(total_size))
-            for key, value in sorted(cache.items()):
-                if value != 0:
-                    print('{}: {}'.format(key, value))
-
-except Exception as err:
+        lineindex += 1
+        if re.match(regex, line):
+            statuscode = re.search(statuscoderegex, line).group(0)[2:]
+            filesize += int(re.search(filesizeregex, line).group(0))
+            if statuscode in valid_status_code:
+                valid_status_code[statuscode] += 1
+        if lineindex % 10 == 0:
+            show()
+except Exception:
     pass
-
 finally:
-    print('File size: {}'.format(total_size))
-    for key, value in sorted(cache.items()):
-        if value != 0:
-            print('{}: {}'.format(key, value))
+    show()
